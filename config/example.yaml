@@ -1,0 +1,84 @@
+schema_version: 1
+
+map:
+  width: 17
+  height: 15
+  # 15 files per 17 columnes. 0 = elevacio baixa, 1 = elevacio alta.
+  elevations:
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+objectives:
+  - id: objective_a_1
+    position: {q: 2, r: 2}
+    zone: team_a
+  - id: objective_a_2
+    position: {q: 6, r: 2}
+    zone: team_a
+  - id: objective_neutral_1
+    position: {q: 7, r: 7}
+    zone: neutral
+  - id: objective_neutral_2
+    position: {q: 9, r: 7}
+    zone: neutral
+  - id: objective_b_1
+    position: {q: 10, r: 12}
+    zone: team_b
+  - id: objective_b_2
+    position: {q: 14, r: 12}
+    zone: team_b
+
+teams:
+  - id: team_a
+    sprite: imgs/robot_team1.png
+    robots:
+      - id: team_a_robot_1
+        movement: 3
+        range: 5
+        damage: 2
+        position: {q: 2, r: 0}
+        orientation: N
+      - id: team_a_robot_2
+        movement: 3
+        range: 5
+        damage: 2
+        position: {q: 6, r: 0}
+        orientation: NE
+
+  - id: team_b
+    sprite: imgs/robot_team2.png
+    robots:
+      - id: team_b_robot_1
+        movement: 3
+        range: 5
+        damage: 2
+        position: {q: 10, r: 14}
+        orientation: S
+      - id: team_b_robot_2
+        movement: 3
+        range: 5
+        damage: 2
+        position: {q: 14, r: 14}
+        orientation: SW
+
+rules:
+  objective_radius: 4
+  victory_points: 7
+  robot_destruction_points: 2
+  objective_points: {friendly: 1, neutral: 3, enemy: 5}
+  armor: {front: 3, side: 4, rear: 5}
+  robot_max_damage: 10
+  orientations: [N, NE, SE, S, SW, NW]

@@ -1,0 +1,1 @@
+"""Interfície visual del simulador."""
