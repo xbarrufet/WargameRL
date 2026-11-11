@@ -37,7 +37,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-## Ús actual
+## Ús
 
 Consultar la versió instal·lada:
 
@@ -45,14 +45,16 @@ Consultar la versió instal·lada:
 wargame --version
 ```
 
-Executar la CLI inicial:
+Executar la simulació de prova per consola:
 
 ```bash
-wargame
+wargame simulate --seed 7
+wargame simulate --config config/example.yaml --mode manual
 ```
 
-En aquesta fase la CLI només confirma que el punt d’entrada està preparat;
-la partida encara no s’executa.
+El mode manual accepta `help`, `status`, `end`, `move ROBOT Q R ORIENTATION`,
+`shoot ATTACKER TARGET` i `quit`. La sintaxi completa i les fases aplicables
+estan documentades a [docs/DOCUMENT_TECNIC.md](docs/DOCUMENT_TECNIC.md).
 
 ## Tests
 

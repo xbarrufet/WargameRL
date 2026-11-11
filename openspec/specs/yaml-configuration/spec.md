@@ -36,11 +36,15 @@ El sistema SHALL validar que el mapa tingui 17 columnes, 15 files, elevacions `0
 - **THEN** la càrrega falla i identifica el camp de posició
 
 ### Requirement: Validate entities and gameplay configuration
-El sistema SHALL validar identificadors únics, exactament dos equips, zones i orientacions vàlides, valors positius i absència de superposicions entre robots i objectius.
+El sistema SHALL validar identificadors únics, exactament dos equips, zones i orientacions vàlides, valors positius, robots no superposats entre ells i objectius no superposats entre ells.
 
-#### Scenario: Duplicate or overlapping entities
-- **WHEN** dos elements comparteixen identificador o posició
+#### Scenario: Duplicate identifiers or physical overlaps
+- **WHEN** dos elements comparteixen identificador, o dos robots o dos objectius comparteixen posició
 - **THEN** la càrrega falla abans de crear la configuració interna
+
+#### Scenario: Robot may occupy an objective
+- **WHEN** un robot i un objectiu comparteixen una posició
+- **THEN** la configuració és vàlida perquè l’objectiu no ocupa físicament la casella
 
 #### Scenario: Invalid robot or rule value
 - **WHEN** un moviment, rang, dany o paràmetre de regla no és un enter positiu, o una orientació no està permesa

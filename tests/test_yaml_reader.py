@@ -76,6 +76,33 @@ def test_custom_objective_points_are_loaded(tmp_path: Path) -> None:
     assert load_config(path).rules.objective_points == {"friendly": 2, "neutral": 6, "enemy": 9}
 
 
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "        range: 5\n        damage: 2\n        hit_target: 4",
+        "        jump: 0",
+        "        jump: invalid",
+        "        hit_target: 0",
+        "        hit_target: invalid",
+    ],
+)
+def test_invalid_robot_movement_or_hit_values_are_rejected(
+    tmp_path: Path, replacement: str
+) -> None:
+    path = _copy_example(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    if replacement.startswith("        range"):
+        text = text.replace("        jump: 4\n        range: 5\n        damage: 2\n        hit_target: 4", replacement, 1)
+    elif replacement.startswith("        jump"):
+        text = text.replace("        jump: 4", replacement, 1)
+    else:
+        text = text.replace("        hit_target: 4", replacement, 1)
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match=r"teams\[0\]\.robots\[0\]"):
+        load_config(path)
+
+
 def _copy_example(tmp_path: Path) -> Path:
     source = ROOT / "config/example.yaml"
     path = tmp_path / "example.yaml"

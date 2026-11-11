@@ -107,6 +107,21 @@ El mapa utilitza coordenades hexagonals axials `q,r`:
 - cada casella pot contenir com a màxim un robot;
 - els objectius tenen una posició i una zona (`team_a`, `neutral` o `team_b`).
 
+La representació visual és **flat-top**: els costats superior i inferior de
+cada hexàgon són horitzontals i l’orientació `N` apunta perpendicularment al
+costat superior, no cap a un vèrtex. Amb una mida `s` i un origen `(ox, oy)` el
+centre de la casella `(q, r)` es calcula com:
+
+```text
+x = ox + 1.5 * s * q
+y = oy + √3 * s * (r + q / 2)
+```
+
+La conversió inversa arrodoneix les coordenades axials fraccionàries amb
+arrodoniment cúbic i comprova després que el punt estigui dins del polígon i
+dels límits del tauler. Aquesta lògica no depèn de Pygame; la UI només adapta
+els centres i punts a les seves primitives gràfiques.
+
 El mòdul de coordenades ha d’oferir com a mínim:
 
 - validació de coordenades dins del mapa;
@@ -163,9 +178,11 @@ es configuren amb `rules.objective_points` i són relatius a l’equip que puntu
 5, segons [DESCRIPCIO.md](./DESCRIPCIO.md). Un robot que continua dins del radi
 d’un objectiu continua puntuant en els torns posteriors.
 
-Quan un equip arriba a 7 punts, l’altre equip pot completar el seu torn si
+Quan un equip arriba a 15 punts, l’altre equip pot completar el seu torn si
 encara no l’ha jugat. Després es comparen les puntuacions. Guanya l’equip amb
-més punts i, si són iguals, el resultat és un empat.
+més punts i, si són iguals, el resultat és un empat. Si cap equip arriba al
+llindar, la partida acaba després de la ronda 15 i aplica la mateixa
+comparació. Un resultat final bloqueja noves accions i transicions.
 
 ## 7. Accions i validació
 
@@ -188,26 +205,29 @@ retornar un error explicatiu per a la interfície i per a les proves.
 
 ## 8. Moviment i orientació
 
-- El robot pot moure fins a `M` caselles en la mateixa elevació o en una
-  elevació inferior.
-- Arribar a una elevació superior consumeix tot el moviment disponible.
-- El salt només és possible cap a una casella adjacent.
-- No es pot acabar en una casella ocupada.
-- Pivotar 60 graus consumeix un punt de moviment.
-- El moviment i els pivots es poden combinar.
-- En acabar el moviment, el robot pot fer un pivot gratuït.
+- El moviment normal consumeix un punt per avançar una casella en la direcció
+  d'encarament i un punt per pivotar 60 graus. Només permet entrar en caselles
+  de la mateixa elevació o inferior, no travessa robots i es pot interrompre
+  abans d'esgotar `M`.
+- Els pivots i els avanços es poden combinar en una única acció validada com un
+  tot. Una acció invàlida no deixa efectes parcials.
+- El salt permet anar fins a `J` hexàgons en qualsevol direcció i elevació,
+  travessar robots i acabar en una casella lliure. L'orientació final després
+  del salt és gratuïta.
 
 El càlcul de moviment ha de retornar les caselles accessibles perquè la UI les
 marqui abans que l’usuari confirmi l’acció.
 
 ## 9. Línia de visió i combat
 
-El mòdul de visibilitat ha de comprovar l’arc frontal de l’atacant, la distància
-màxima de l’arma, el bloqueig produït per les elevacions i la cobertura quan el
-blanc és en una elevació superior.
+El mòdul de visibilitat comprova l’arc frontal de 120° de l’atacant, delimitat
+per la projecció flat-top dels seus costats esquerre i dret, la distància
+màxima de l’arma i el bloqueig produït per les elevacions. Els robots no
+bloquegen la línia de visió i no s’aplica cobertura per elevació.
 
-El dispar sempre impacta si compleix rang i línia de visió. El blanc tira `D`
-daus de sis cares. La tirada d’armadura depèn de l’angle:
+El dispar fa una tirada `1D6` contra `H`, amb modificador `+1` si l’atacant no
+s’ha mogut, `0` després de moviment normal i `-2` després d’un salt. Si
+impacta, el blanc tira `D` daus de sis cares. La tirada d’armadura depèn de l’angle:
 
 | Zona atacada | Armadura |
 |---|---:|
@@ -215,12 +235,14 @@ daus de sis cares. La tirada d’armadura depèn de l’angle:
 | Lateral | 4+ |
 | Posterior | 5+ |
 
-La cobertura afegeix `+1` a la tirada d’armadura. Cada dau que no és aturat
-per l’armadura genera un impacte. Quan un robot arriba a 10 impactes, queda
-destruït i l’equip contrari rep els punts de destrucció configurats.
+No s’aplica cobertura per elevació. Cada dau que no és aturat per l’armadura
+genera un impacte. Quan un robot arriba a `robot_max_damage` (5 per defecte),
+queda destruït i l’equip contrari rep una sola vegada
+`robot_destruction_points` (3 per defecte).
 
-La generació aleatòria s’ha de centralitzar en el motor i ha d’acceptar una
-llavor. Això permet repetir una partida exactament durant les proves.
+La generació aleatòria està centralitzada en el motor i accepta una llavor.
+`ShootAction` retorna un resum amb les tirades, el modificador, l’armadura i
+els impactes, i cada robot només pot disparar una vegada per torn.
 
 ## 10. Visualització
 
@@ -236,6 +258,50 @@ separada si la imatge no és rotacionalment simètrica.
 
 El renderitzador no ha de contenir regles del joc. No ha de decidir si una
 casella és accessible; ha de rebre aquesta informació del motor.
+
+## 11. Simulació per consola
+
+El punt d’entrada `wargame simulate` permet executar el motor sense Pygame.
+La configuració per defecte és `config/example.yaml`; es pot substituir amb
+`--config` i fixar l’atzar amb `--seed`.
+
+### 11.1. Opcions del CLI
+
+```text
+wargame simulate [--config PATH] [--seed INTEGER] [--mode demo|manual]
+```
+
+- `--mode demo`: executa una seqüència no interactiva fins al resultat final.
+- `--mode manual`: llegeix comandes de text des de l’entrada estàndard.
+- `--config PATH`: carrega un escenari YAML alternatiu.
+- `--seed INTEGER`: conserva una llavor per reproduir els combats.
+
+### 11.2. Comandes del mode manual
+
+La gramàtica de les comandes és:
+
+```text
+help
+status
+end
+move ROBOT Q R ORIENTATION
+shoot ATTACKER TARGET
+quit
+```
+
+| Comanda | Arguments | Fase aplicable | Efecte |
+|---|---|---|---|
+| `help` | cap | qualsevol | Mostra la llista de comandes. |
+| `status` | cap | qualsevol | Mostra ronda, torn, fase, equip actiu, puntuacions, resultat i la posició `(q,r)` de cada robot. |
+| `end` | cap | qualsevol fase | Finalitza la fase actual mitjançant `EndPhaseAction`. |
+| `move` | robot, `q`, `r`, orientació | `MOVEMENT` | Executa un salt fins a la destinació i orientació indicades. |
+| `shoot` | atacant, blanc | `SHOOTING` | Executa un dispar i mostra el resum de combat. |
+| `quit` | cap | qualsevol | Surt del mode manual sense modificar les regles del motor. |
+
+Les orientacions vàlides són `N`, `NE`, `SE`, `S`, `SW` i `NW`. El parser només
+interpreta la forma de la comanda; la fase activa, l’equip, l’ocupació, el rang,
+la línia de visió i la resta de regles les valida el motor. Una ordre rebutjada
+mostra un error i conserva l’estat anterior.
 
 ## 11. Configuració YAML
 

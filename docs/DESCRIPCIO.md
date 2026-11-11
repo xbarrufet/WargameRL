@@ -1,161 +1,151 @@
-# WARGAME REINFORCE LEARNING
-Es una prova de concepte per l'entrenament de un sistema de RL per jugar a wargames
-L idea es poder fer servir RL per la estratgia macro del joc i scripting per la tactica micro del joc
+# GAME_RULES — WargameRL
 
-## Regles del Joc
-Com a domini del joc, es represtanra la lluita entre 2 equips de robots (inicialement de 2 robots). La mecanica inicial es molt simple.
-- Moviment: els robots mouen <M> caselles
-- Arma: els robots tenen 1 arma principal de rang <R>  Dany <D>
-- Armadura: els robots tene una armadura de 3+ Davant, +4 costats, +5 darrera
-El combat es per torns, primer tot l'equip i despres l'altre i hi ha 3 fases per torn
-- fase Movimient
-- fase dispar
-- fase puntuacio
+## 1. Propòsit i autoritat
 
-### Puntuacio
-Al final del torn de cada equip només es calculen els punts del jugador que ha
-acabat el torn.
-- Esta a un radi de 4 de un objectiu a la zona inicial : 1 punt
-- Esta a un radi de 4 de un objectiu a la zona de ningu : 3 punt
-- Esta a un radi de 4 de un objectiu a la zona inicial del enemic : 5 punt
-- destrueix 1 robot enemic : 2 punts
-Si el robot es queda al meteix objectiu continua puntuant
-Un objectiu nomes puntua 1 cop per torn, es a dir si hi ha dos models del mateix equip dins del radi del mateix objectiu nomes es puntua 1 vegada
-A un objectiu poden haver models de diferents equips en radi, en aquest cas puntua el equip que tingui mes models en radi, si tenen el mateix, no puntua
+Aquest document és la font de veritat de les **regles del joc** de WargameRL. `DESCRIPCIO.md` descriu la PoC, els components i l'arquitectura, però no redefineix aquestes regles. Els fitxers YAML configuren escenaris concrets i han de respectar aquest contracte.
 
+## 2. Equips i seqüència de joc
 
-### Terreny
-El terreny es una grid de hexagons de 17 x 15 hexagons. la zona inicial es troba a la part alta i baixa en un ample de 5 hexagons
-Hi ha 2 objectus a cada zona, inicial A, inicial B,i Zona de ningu 
-El terreny te 2 elevacions, 
+- Dos equips, inicialment amb **2 robots per equip**.
+- El joc es desenvolupa per torns d'equip: primer actua un equip i després l'altre.
+- Cada torn consta de tres fases, en aquest ordre: **moviment, dispar i puntuació**.
+- Dins de cada fase, els robots de l'equip actiu poden actuar en qualsevol ordre.
+- Cada robot té una arma principal i una orientació sobre el mapa hexagonal.
 
-### Linea de visio
-un robot veu el tot l'arc frontal seu sempre, pero una elevacio superior tapa les elevacions inferiors de darrera.
-Un robot a elevacion alta veu totes les elevacions, pero es vist per tothom
+## 3. Mapa i objectius
 
-### Moviemnt
-Un robot mou tantes caselles como moviment <M> tingui en la mateixa elevacio o inferior, per moure a una elevacio superior gasta tot el moviment (salta). El salt només es pot fer a una casella adjacent.
-Pivotar 60º costa 1 punt de moviemnt
-Un robot no pot acabar a una casella ocupada per un altre robot
-El moviment i el pivot es poden combinar lliurement. En acabar el moviment, el robot pot pivotar gratuïtament.
+- Mapa hexagonal de **17 × 15** caselles, identificades per coordenades `q,r`.
+- Tres zones: inicial de l'equip A, neutral i inicial de l'equip B. Les zones inicials ocupen una franja de 5 hexàgons als extrems superior i inferior del mapa.
+- **2 objectius per zona**, 6 en total.
+- Cada hexàgon té elevació **0 (baixa)** o **1 (alta)**.
+- Radi de control dels objectius: **2 hexàgons** (inclosa la casella de l'objectiu).
+- Distància hexagonal mínima entre qualsevol parella d'objectius: **5 hexàgons**, de manera que els seus radis de control no se solapin.
 
-### Disparo
-per disparar el robot ha de tenir linea de visio anb el target i el target ha d'estar a una distancia maxim rang <R>.
-Sempre impacta, llavors el target tiran tants daus de 6 cares com dany <D> te l'arma, i depenen d'on ve l'atac (davant, costat, darrera) cada dau que supero la tirada (3+,4+ o 5+), el para la armadura, els altres generen impactes, al arribar a 10 impactes el robot es destruit
-Si el robot target es troba a una elevacio superior del que dispara, te covertura, la cobertura dona un +1 a la tirada de armadura
+## 4. Robots
 
-### Final del joc
-Qui arribi a 7 punts activa el final de la partida. Si és el primer jugador,
-el segon té dret a completar el seu torn. Després es comparen les puntuacions:
-guanya el jugador amb més punts i, si les puntuacions són iguals, la partida
-acaba en empat.
+Paràmetres inicials comuns a tots els robots:
 
+| Paràmetre | Valor |
+|---|---:|
+| Moviment normal (`M`) | 3 punts |
+| Salt (`J`) | 4 hexàgons |
+| Rang de l'arma (`R`) | 5 hexàgons |
+| Dany de l'arma (`D`) | 2 daus D6 |
+| Tirada base per impactar (`H`) | 4+ en 1D6 |
+| Resistència | 5 impactes |
+| Salvació frontal | 3+ |
+| Salvació lateral | 4+ |
+| Salvació posterior | 5+ |
 
-## Compoenents de la aplicacio
-### Mapa UI
-Component que dibuixa un grid de hexagons en coordenades q,r de A x B hexagons
-Es capaça de pintar hexagons de diferents colors i de posa un dibuix en un encarament determinat a un hexagon
-Permet fer accions sobre els elements seleccio robot + seleccion casell target (pot ser moviment, salto, disparo)
-### Game
-Control del joc, controla les fases, mapa i posicio dels robots i excuta accions mirant que siguin valides. Dins d'una fase, els robots poden actuar en qualsevol ordre; no hi ha un ordre d'actuacio fix.
+**Nota:** `R` és el rang de l'arma; el radi dels objectius és `objective_radius`.
 
-### Map reader
-La configuracio del mapa i de la partida es defineix en un fitxer YAML. Les
-coordenades utilitzen el sistema hexagonal `q,r`, amb `q` entre 0 i 16 i `r`
-entre 0 i 14.
+## 5. Moviment
 
-Exemple d'estructura:
+### Moviment normal
+
+- Cada robot disposa de `M=3` punts de moviment.
+- Avançar una casella en la direcció d'encarament costa 1 punt.
+- Pivotar 60° costa 1 punt; es poden combinar pivots i avanços lliurement dins del pressupost.
+- Només es pot avançar a una casella de la mateixa elevació o inferior.
+- No es pot travessar una casella ocupada per un altre robot.
+- Es permet no gastar tots els punts de moviment, inclòs quedar-se quiet.
+
+### Salt
+
+- Permet desplaçar-se fins a `J=4` hexàgons en qualsevol direcció, independentment de l'elevació.
+- Permet passar per sobre d'altres robots.
+- En acabar, el robot escull lliurement l'encarament final.
+- No es pot acabar en una casella ocupada.
+
+## 6. Línia de visió i orientació
+
+- Un robot només pot disparar contra objectius dins del seu **arc frontal**.
+- Les elevacions altes bloquegen la visió entre posicions baixes si queden interposades.
+- Un robot situat en elevació alta pot veure per sobre del terreny elevat, i també és visible des de posicions baixes si es troba dins del seu arc de visió.
+- **No s'aplica cap bonificació de cobertura per elevació** en aquesta PoC.
+
+L’arc frontal és de 120° en flat-top, delimitat per la projecció dels costats
+esquerre i dret de l’encarament, segons [arc_frontal.png](./arc_frontal.png).
+La línia de visió recorre la línia hexagonal canònica i només el terreny elevat
+pot bloquejar-la; els robots no bloquegen la visió.
+
+## 7. Dispar i dany
+
+La resolució està implementada al motor i és reproduïble amb la llavor de la
+partida; la interfície només mostra el resum retornat per l’acció de dispar.
+
+- Cada robot pot efectuar **com a màxim un dispar per torn** durant la fase de dispar.
+- Per disparar cal que el blanc estigui dins de l'arc frontal, sigui visible i estigui a distància màxima `R=5`.
+- Per impactar es tira **1D6**; el resultat modificat ha d'igualar o superar `H=4`.
+
+| Moviment del robot durant el torn | Modificador a impactar |
+|---|---:|
+| No s'ha mogut | +1 |
+| Moviment normal | 0 |
+| Ha saltat | −2 |
+
+- Si el dispar impacta, el defensor tira `D=2` daus D6 de salvació.
+- Cada dau que iguala o supera el valor d'armadura de l'arc atacat anul·la un impacte; cada salvació fallada causa **1 impacte de dany**.
+- L'armadura és 3+ frontal, 4+ lateral i 5+ posterior.
+- Quan un robot acumula **5 impactes de dany**, és destruït i es retira del mapa.
+- Destruir un robot enemic atorga **3 punts**, una única vegada, a l'equip que l'ha destruït.
+
+## 8. Control i puntuació
+
+- Al final del torn d'un equip, **només puntua l'equip actiu**.
+- Un robot contribueix al control d'un objectiu quan està a distància hexagonal **≤ 2**.
+- Un objectiu el controla l'equip amb més robots dins del radi. En cas d'empat, no el controla ningú i no puntua.
+- Cada objectiu només pot puntuar **una vegada per torn**.
+- Un equip pot continuar puntuant un objectiu en torns consecutius mentre el controli.
+
+| Ubicació de l'objectiu respecte de l'equip actiu | Punts per torn |
+|---|---:|
+| Zona inicial pròpia | 1 |
+| Zona neutral | 3 |
+| Zona inicial enemiga | 5 |
+
+## 9. Final de partida
+
+- Quan un equip arriba a **15 punts**, s'activa el final de partida.
+- Si és el primer equip de la ronda, el segon té dret a completar el seu torn.
+- En acabar, guanya l'equip amb més punts. En cas d'igualtat, la partida acaba en empat.
+
+## 10. Configuració i validacions
+
+El YAML defineix les dimensions i elevacions del mapa, els objectius, els equips, els robots i els paràmetres configurables. Com a mínim, el lector ha de validar:
+
+- Dimensions i forma de la matriu d'elevacions (`elevations[r][q]`), i valors 0 o 1.
+- Coordenades dins dels límits del mapa i absència d'identificadors duplicats.
+- Posicions inicials de robots no superposades.
+- Orientacions vàlides: `N, NE, SE, S, SW, NW`.
+- Valors numèrics positius per a moviment, salt, rang, dany i resistència.
+- Separació mínima de 5 hexàgons entre objectius.
+
+Exemple de valors configurables (fragment, no escenari complet):
 
 ```yaml
-schema_version: 1
-
-map:
-  width: 17
-  height: 15
-  # Matriu de 15 files per 17 columnes. Cada valor representa l'elevacio:
-  # 0 = baixa i 1 = alta.
-  elevations:
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
-objectives:
-  - id: objective_a_1
-    position: {q: 2, r: 2}
-    zone: team_a
-  - id: objective_a_2
-    position: {q: 6, r: 2}
-    zone: team_a
-  - id: objective_neutral_1
-    position: {q: 7, r: 7}
-    zone: neutral
-  - id: objective_neutral_2
-    position: {q: 9, r: 7}
-    zone: neutral
-  - id: objective_b_1
-    position: {q: 10, r: 12}
-    zone: team_b
-  - id: objective_b_2
-    position: {q: 14, r: 12}
-    zone: team_b
-
-teams:
-  - id: team_a
-    robots:
-      - id: team_a_robot_1
-        movement: 3       # M
-        range: 5          # R
-        damage: 2         # D: nombre de daus de sis cares
-        position: {q: 2, r: 0}
-        orientation: N
-      - id: team_a_robot_2
-        movement: 3
-        range: 5
-        damage: 2
-        position: {q: 6, r: 0}
-        orientation: NE
-
-  - id: team_b
-    robots:
-      - id: team_b_robot_1
-        movement: 3
-        range: 5
-        damage: 2
-        position: {q: 10, r: 14}
-        orientation: S
-      - id: team_b_robot_2
-        movement: 3
-        range: 5
-        damage: 2
-        position: {q: 14, r: 14}
-        orientation: SW
-
 rules:
-  objective_radius: 4
-  victory_points: 7
-  robot_destruction_points: 2
+  objective_radius: 2
+  minimum_objective_distance: 5
+  victory_points: 15
+  robot_destruction_points: 3
   objective_points: {friendly: 1, neutral: 3, enemy: 5}
   armor: {front: 3, side: 4, rear: 5}
-  robot_max_damage: 10
+  robot_max_damage: 5
   orientations: [N, NE, SE, S, SW, NW]
+
+# Camps de cada robot:
+# movement: 3
+# jump: 4
+# hit_target: 4
+# range: 5
+# damage: 2
 ```
 
-El lector ha de validar que la matriu tingui exactament 15 files i 17 valors
-per fila, que cada elevacio sigui `0` o `1`, que les coordenades siguin dins
-del mapa, que no hi hagi robots ni objectius duplicats i que les orientacions
-pertanyin al conjunt definit. Els valors de `movement`, `range` i `damage`
-han de ser enters positius.
+## 11. Decisions resoltes
 
-
+La geometria flat-top, els arcs, la línia de visió, el bloqueig per elevació i
+la convenció de coordenades estan definits a `GAME_RULES.md` i implementats al
+motor. La partida permet completar el torn del segon equip quan el primer
+arriba a 15 punts, resol els empats comparant puntuacions i té un límit de 15
+rondes.

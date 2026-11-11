@@ -79,6 +79,12 @@ incorrecta produeix un error indicant el camp afectat.
 
 ## Fase 2 — Model de dades
 
+**Estat: completada.** S’han implementat `HexCoordinate`, les enumeracions de
+direcció, fase i resultat, les entitats `Team`, `Robot`, `Objective` i `Board`,
+i `GameState`. L’estat inicial es crea a partir de `GameConfig`, valida els
+invariants del model i es pot serialitzar i restaurar en format compatible amb
+JSON. Els tests del model i del round trip passen correctament.
+
 ### Objectiu
 
 Definir l’estat de la partida sense implementar encara les regles.
@@ -101,6 +107,11 @@ guardar-lo o inspeccionar-lo.
 
 ## Fase 3 — Coordenades i mapa hexagonal
 
+**Estat: completada.** La convenció de la fase és axial `q,r` amb
+hexàgons **flat-top**: `N` apunta perpendicularment al costat superior, no a
+un vèrtex. La conversió utilitza una mida i un origen configurables i el motor
+no depèn de Pygame.
+
 ### Objectiu
 
 Implementar les operacions bàsiques del tauler.
@@ -122,25 +133,35 @@ seleccionar caselles amb el ratolí.
 
 ## Fase 4 — Moviment i orientació
 
+**Estat: completada.** S’han implementat les accions de moviment normal,
+pivot i salt, amb validació atòmica de pressupost, elevació i ocupació. Els
+robots bloquegen el moviment normal però no la trajectòria dels salts; el salt
+només exigeix que la casella final estigui lliure. També es poden consultar les
+destinacions accessibles i escollir gratuïtament l’encarament final després
+d’un salt.
+
 ### Objectiu
 
 Implementar les accions de moviment, pivot i salt.
 
 ### Regles
 
-- El robot pot moure fins a `M` caselles en elevació igual o inferior.
-- El salt a una elevació superior només és possible a una casella adjacent.
-- El salt consumeix tot el moviment disponible.
+- El robot disposa de `M` punts de moviment normal.
+- Avançar en la direcció d'encarament costa 1 punt i només permet anar a una
+  casella de la mateixa elevació o inferior.
+- Pivotar 60° costa 1 punt; els pivots i els avanços es poden combinar.
+- Es pot gastar només una part del moviment, inclòs no moure's.
+- El salt permet anar fins a `J` hexàgons en qualsevol direcció,
+  independentment de l'elevació, i permet passar per sobre de robots.
+- El salt no pot acabar en una casella ocupada i permet escollir gratuïtament
+  l'encarament final.
 - No es pot acabar en una casella ocupada.
-- Pivotar 60° consumeix un punt de moviment.
-- Els pivots i el moviment es poden combinar.
-- El pivot final després del salt és gratuït.
 
 ### Tasques
 
-- Crear `MoveAction`, i `PivotAction`.
+- Crear accions per al moviment normal, el pivot i el salt.
 - Calcular caselles accessibles.
-- Validar camins i costos.
+- Validar camins, costos, elevació, ocupació i límit de salt.
 - Actualitzar posició i orientació només després de validar tota l’acció.
 
 ### Resultat
@@ -149,6 +170,13 @@ Es pot moure qualsevol robot de forma segura i el motor retorna les caselles
 accessibles i els errors de moviment.
 
 ## Fase 5 — Fases i cicle de torn
+
+**Estat: completada.** El motor implementa les transicions
+`MOVEMENT → SHOOTING → SCORING → MOVEMENT` mitjançant `EndPhaseAction`, valida
+l’equip actiu i la fase de les accions, aplica la puntuació configurada abans
+de canviar d’equip i incrementa la ronda quan tots dos equips han completat el
+seu torn. `RulesConfig` es conserva dins de `GameState` per mantenir la
+puntuació determinista i serialitzable.
 
 ### Objectiu
 
@@ -166,14 +194,23 @@ MOVEMENT → SHOOTING → SCORING → canvi d’equip → MOVEMENT
 - No hi ha ordre fix entre els robots del mateix equip.
 - Només actua l’equip actiu.
 - Cada acció només és vàlida durant la seva fase.
+- Al final de `SCORING` només puntua l'equip actiu i després es canvia
+  d'equip; la ronda avança quan tots dos equips han completat el seu torn.
 - El final de fase es controla amb `EndPhaseAction`.
 
 ### Resultat
 
-Una partida pot avançar de forma completa sense combat, i el motor rebutja
-accions que no corresponen a la fase actual.
+Una partida pot avançar de forma completa sense combat, els robots de l’equip
+actiu poden actuar en qualsevol ordre i el motor rebutja accions que no
+corresponen a la fase o a l’equip actual.
 
 ## Fase 6 — Línia de visió
+
+**Estat: completada.** El motor calcula l’arc frontal de 120° en geometria
+flat-top, valida el rang `R`, recorre la línia hexagonal i aplica el bloqueig
+per elevacions. Els robots no bloquegen la línia de visió i les consultes
+retornen blancs vàlids amb motius deterministes per als rebutjats, sense
+introduir cobertura ni regles de combat.
 
 ### Objectiu
 
@@ -184,7 +221,6 @@ Determinar quins robots poden veure’s i disparar-se.
 - Calcular l’arc frontal a partir de l’orientació.
 - Comprovar la distància màxima `R`.
 - Implementar el bloqueig per elevacions.
-- Detectar si el blanc té cobertura.
 - Retornar el motiu pel qual un blanc no és vàlid.
 
 ### Resultat
@@ -192,12 +228,15 @@ Determinar quins robots poden veure’s i disparar-se.
 El motor pot generar la llista de blancs vàlids per a cada robot i la UI pot
 ressaltar-los.
 
-### Decisió pendent
-
-Cal fixar l’algoritme exacte per traçar la línia entre dos hexàgons quan el
-segment passa entre dues caselles.
+La cobertura per elevació no forma part d'aquesta PoC. L’arc frontal de 120°
+segueix la projecció flat-top dels costats esquerre i dret de l’encarament,
+segons [arc_frontal.png](./arc_frontal.png).
 
 ## Fase 7 — Combat i dany
+
+**Estat: completada.** El motor executa dispars reproduïbles durant la fase de
+dispar, resol impactes i salvacions, acumula dany, retira robots destruïts i
+concedeix els punts de destrucció configurats.
 
 ### Objectiu
 
@@ -205,21 +244,29 @@ Implementar el dispar i la resolució del dany.
 
 ### Regles
 
-- El dispar sempre impacta si compleix rang i línia de visió.
-- Es tiren `D` daus de sis cares.
+- Cada robot pot disparar com a màxim una vegada per torn.
+- El blanc ha d'estar dins de l'arc frontal, ser visible i trobar-se dins de
+  `R` hexàgons.
+- Per impactar es tira `1D6`; el resultat més el modificador ha d'assolir `H`.
+- El modificador és `+1` si el robot no s'ha mogut, `0` si ha fet moviment
+  normal i `-2` si ha saltat.
+- Després d'un impacte, el defensor tira `D` daus D6 de salvació.
 - Armadura frontal: `3+`.
 - Armadura lateral: `4+`.
 - Armadura posterior: `5+`.
-- La cobertura afegeix `+1` a l’armadura.
 - Cada dau no aturat genera un impacte.
-- Amb 10 impactes el robot queda destruït.
+- Amb `robot_max_damage` impactes, per defecte 5, el robot queda destruït i es
+  retira del mapa.
+- Destruir un robot enemic atorga `robot_destruction_points`, per defecte 3,
+  una única vegada.
 
 ### Tasques
 
 - Crear `ShootAction`.
 - Centralitzar el generador aleatori.
 - Acceptar una llavor per reproduir partides.
-- Retornar un resum del combat: daus, armadura, cobertura i impactes.
+- Retornar un resum del combat: tirada d'impacte, modificador, salvacions i
+  impactes.
 - Bloquejar robots destruïts.
 
 ### Resultat
@@ -227,6 +274,10 @@ Implementar el dispar i la resolució del dany.
 Es pot executar un combat reproduïble i inspeccionar-ne el resultat complet.
 
 ## Fase 8 — Puntuació i final de partida
+
+**Estat: completada.** El motor calcula el control i la puntuació de cada
+objectiu al final de `SCORING`, gestiona la victòria per punts, el límit de 15
+rondes i els resultats de victòria o empat.
 
 ### Objectiu
 
@@ -238,11 +289,21 @@ Implementar la puntuació i les condicions de final.
 - Objectiu de zona pròpia: valor `rules.objective_points.friendly` (1 per defecte).
 - Objectiu neutral: valor `rules.objective_points.neutral` (3 per defecte).
 - Objectiu de la zona enemiga: valor `rules.objective_points.enemy` (5 per defecte).
-- Destruir un robot enemic: 2 punts.
-- Un robot continua puntuant mentre es manté dins del radi 4.
-- En arribar a 7 punts, l’altre equip pot completar el seu torn.
-- Guanya qui té més punts després del torn final.
-- Si les puntuacions coincideixen, el resultat és empat.
+- Un robot contribueix al control si és a distància `<= objective_radius`, per
+  defecte 2.
+- Controla l'objectiu l'equip amb més robots dins del radi; en cas d'empat no
+  hi ha control ni puntuació.
+- Cada objectiu puntua com a màxim una vegada per torn i l'equip pot continuar
+  puntuant-lo en torns consecutius mentre el controli.
+- Destruir un robot enemic atorga els punts de destrucció durant la resolució
+  del combat, no durant la fase de puntuació.
+- En arribar a `victory_points` (15 per defecte), s'activa el final de partida.
+  Si passa durant el primer torn de la ronda, l'altre equip pot completar el
+  seu torn.
+- La partida té un límit de 15 rondes; en acabar, guanya qui té més punts i
+  en cas d'empat el resultat és `draw`.
+- Guanya qui té més punts després del torn final; si les puntuacions
+  coincideixen, el resultat és empat.
 
 ### Resultat
 
@@ -250,6 +311,12 @@ La simulació pot produir `team_a_wins`, `team_b_wins` o `draw` de forma
 determinista, excepte en les tirades de daus controlades per llavor.
 
 ## Fase 9 — Simulació per consola
+
+**Estat: completada.** S’ha implementat el CLI `wargame simulate` amb modes
+`demo` i `manual`, llavors reproduïbles, sortida de transicions, combats,
+puntuacions i resultat final. El mode manual documenta les comandes `help`,
+`status`, `end`, `move`, `shoot` i `quit`, i `status` mostra també la posició
+i l’estat de cada robot.
 
 ### Objectiu
 
@@ -262,6 +329,8 @@ Provar una partida completa sense gràfics.
 - Permetre introduir accions manualment o executar una seqüència de prova.
 - Mostrar cada transició, resultat de combat i puntuació.
 - Afegir una opció per fixar la llavor aleatòria.
+- Mostrar el tancament anticipat per assolir `victory_points` i el límit de
+  rondes.
 
 ### Resultat
 
@@ -305,8 +374,10 @@ Assegurar que els canvis de la UI no trenquin la simulació.
 - Moviment, ocupació, salts i pivots.
 - Línia de visió, arcs i cobertura.
 - Combat amb llavor fixa.
-- Destrucció i puntuació.
-- Final amb victòria i empat.
+- Destrucció i els punts configurables per robot destruït (3 per defecte).
+- Control d'objectius amb radi 2, empat i puntuació única per torn.
+- Final per 15 punts, final després de completar la ronda i límit de 15
+  rondes, inclòs l'empat.
 - Seqüència completa de torns.
 
 ### Resultat

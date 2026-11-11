@@ -23,8 +23,10 @@ class Position:
 class RobotConfig:
     id: str
     movement: int
+    jump: int
     range: int
     damage: int
+    hit_target: int
     position: Position
     orientation: str
 
@@ -53,6 +55,7 @@ class MapConfig:
 @dataclass(frozen=True)
 class RulesConfig:
     objective_radius: int
+    minimum_objective_distance: int
     victory_points: int
     robot_destruction_points: int
     objective_points: dict[str, int]
@@ -75,10 +78,11 @@ _TOP_LEVEL = {"schema_version", "map", "objectives", "teams", "rules"}
 _MAP_FIELDS = {"width", "height", "elevations"}
 _OBJECTIVE_FIELDS = {"id", "position", "zone"}
 _TEAM_FIELDS = {"id", "sprite", "robots"}
-_ROBOT_FIELDS = {"id", "movement", "range", "damage", "position", "orientation"}
+_ROBOT_FIELDS = {"id", "movement", "jump", "range", "damage", "hit_target", "position", "orientation"}
 _POSITION_FIELDS = {"q", "r"}
 _RULE_FIELDS = {
     "objective_radius",
+    "minimum_objective_distance",
     "victory_points",
     "robot_destruction_points",
     "objective_points",
@@ -167,6 +171,7 @@ def _parse_rules(value: Any, field: str) -> RulesConfig:
         raise ConfigurationError(f"{field}.orientations: no pot contenir duplicats")
     return RulesConfig(
         _positive_int(data.get("objective_radius"), f"{field}.objective_radius"),
+        _positive_int(data.get("minimum_objective_distance"), f"{field}.minimum_objective_distance"),
         _positive_int(data.get("victory_points"), f"{field}.victory_points"),
         _positive_int(data.get("robot_destruction_points"), f"{field}.robot_destruction_points"),
         objective_point_values,
@@ -220,8 +225,10 @@ def _parse_robot(value: Any, field: str, map_config: MapConfig, rules: RulesConf
     return RobotConfig(
         _text(data.get("id"), f"{field}.id"),
         _positive_int(data.get("movement"), f"{field}.movement"),
+        _positive_int(data.get("jump"), f"{field}.jump"),
         _positive_int(data.get("range"), f"{field}.range"),
         _positive_int(data.get("damage"), f"{field}.damage"),
+        _positive_int(data.get("hit_target"), f"{field}.hit_target"),
         position,
         orientation,
     )
@@ -234,19 +241,25 @@ def _validate_global(map_config: MapConfig, objectives: tuple[ObjectiveConfig, .
     _unique((item.id for item in teams), "teams")
     robot_ids = [robot.id for team in teams for robot in team.robots]
     _unique(robot_ids, "teams[].robots[].id")
-    positions: dict[Position, str] = {}
+    objective_positions: dict[Position, str] = {}
     for item in objectives:
         _validate_position(item.position, map_config, f"objective {item.id}.position")
-        if item.position in positions:
+        if item.position in objective_positions:
             raise ConfigurationError(f"objectives: posició duplicada a {item.position}")
-        positions[item.position] = item.id
+        objective_positions[item.position] = item.id
+    for index, first in enumerate(objectives):
+        for second in objectives[index + 1 :]:
+            if _hex_distance(first.position, second.position) < rules.minimum_objective_distance:
+                raise ConfigurationError(
+                    f"objectives: {first.id} i {second.id} estan a menys de "
+                    f"{rules.minimum_objective_distance} hexàgons"
+                )
+    robot_positions: dict[Position, str] = {}
     for team in teams:
         for robot in team.robots:
-            if robot.position in positions:
-                raise ConfigurationError(f"{robot.id}.position: superposada amb {positions[robot.position]}")
-            if robot.position in positions:
+            if robot.position in robot_positions:
                 raise ConfigurationError(f"{robot.id}.position: posició duplicada")
-            positions[robot.position] = robot.id
+            robot_positions[robot.position] = robot.id
 
 
 def _mapping(value: Any, field: str) -> dict[str, Any]:
@@ -306,6 +319,12 @@ def _parse_position(value: Any, field: str) -> Position:
 def _validate_position(position: Position, map_config: MapConfig, field: str) -> None:
     if not (0 <= position.q < map_config.width and 0 <= position.r < map_config.height):
         raise ConfigurationError(f"{field}: coordenada fora del mapa ({position.q}, {position.r})")
+
+
+def _hex_distance(first: Position, second: Position) -> int:
+    dq = first.q - second.q
+    dr = first.r - second.r
+    return max(abs(dq), abs(dr), abs(dq + dr))
 
 
 def _unique(values: Any, field: str) -> None:

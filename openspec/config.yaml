@@ -1,5 +1,12 @@
 schema: spec-driven
 
+context: |
+  Abans d’actualitzar o implementar regles, llegir AGENTS.md i docs/GAME_RULES.md.
+  AGENTS.md defineix les instruccions del projecte i docs/GAME_RULES.md és la
+  font de veritat de les mecàniques i els paràmetres del joc. DESCRIPCIO.md
+  descriu l’abast i l’arquitectura, però no redefineix les regles. Les
+  especificacions OpenSpec defineixen el comportament d’implementació esperat.
+
 # Project context (optional)
 # Add only constraints that should guide OpenSpec artifacts and workflows.
 # Include constraints an agent cannot infer by reading the code.

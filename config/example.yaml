@@ -26,16 +26,16 @@ objectives:
     position: {q: 2, r: 2}
     zone: team_a
   - id: objective_a_2
-    position: {q: 6, r: 2}
+    position: {q: 7, r: 2}
     zone: team_a
   - id: objective_neutral_1
     position: {q: 7, r: 7}
     zone: neutral
   - id: objective_neutral_2
-    position: {q: 9, r: 7}
+    position: {q: 12, r: 7}
     zone: neutral
   - id: objective_b_1
-    position: {q: 10, r: 12}
+    position: {q: 9, r: 12}
     zone: team_b
   - id: objective_b_2
     position: {q: 14, r: 12}
@@ -47,14 +47,18 @@ teams:
     robots:
       - id: team_a_robot_1
         movement: 3
+        jump: 4
         range: 5
         damage: 2
+        hit_target: 4
         position: {q: 2, r: 0}
         orientation: N
       - id: team_a_robot_2
         movement: 3
+        jump: 4
         range: 5
         damage: 2
+        hit_target: 4
         position: {q: 6, r: 0}
         orientation: NE
 
@@ -63,22 +67,27 @@ teams:
     robots:
       - id: team_b_robot_1
         movement: 3
+        jump: 4
         range: 5
         damage: 2
+        hit_target: 4
         position: {q: 10, r: 14}
         orientation: S
       - id: team_b_robot_2
         movement: 3
+        jump: 4
         range: 5
         damage: 2
+        hit_target: 4
         position: {q: 14, r: 14}
         orientation: SW
 
 rules:
-  objective_radius: 4
-  victory_points: 7
-  robot_destruction_points: 2
+  objective_radius: 2
+  minimum_objective_distance: 5
+  victory_points: 15
+  robot_destruction_points: 3
   objective_points: {friendly: 1, neutral: 3, enemy: 5}
   armor: {front: 3, side: 4, rear: 5}
-  robot_max_damage: 10
+  robot_max_damage: 5
   orientations: [N, NE, SE, S, SW, NW]

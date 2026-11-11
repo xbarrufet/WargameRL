@@ -32,6 +32,8 @@ def test_entities_preserve_yaml_values_without_mutating_config() -> None:
     assert robot.position == HexCoordinate(2, 0)
     assert robot.orientation is Direction.N
     assert robot.movement == 3
+    assert robot.jump == 4
+    assert robot.hit_target == 4
     assert robot.impacts == 0
     assert not robot.destroyed
     assert state.objectives["objective_neutral_1"].position == HexCoordinate(7, 7)
